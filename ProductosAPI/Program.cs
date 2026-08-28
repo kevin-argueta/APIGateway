@@ -1,14 +1,28 @@
 using Microsoft.EntityFrameworkCore;
 using ProductosAPI.Models;
+using StackExchange.Redis;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 builder.Services.AddDbContext<ProductosDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-// JWT
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration =
+builder.Configuration.GetConnectionString("RedisConnection");
+});
+
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+{
+    var configuration =
+ConfigurationOptions.Parse(builder.Configuration.GetConnectionString("RedisConnection")!, true); 
+    return ConnectionMultiplexer.Connect(configuration);
+});
+
+builder.Services.AddOutputCache();
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer("Bearer", options =>
@@ -52,6 +66,8 @@ app.UseAuthentication();
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
+
+app.UseOutputCache();
 
 app.MapControllers();
 

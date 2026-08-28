@@ -1,34 +1,69 @@
+using LibrosAPI.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using LibrosAPI.Models;
+using StackExchange.Redis;
+using System.Text.Json;
 
 [Route("api/[controller]")]
 [ApiController]
 public class LibrosController : ControllerBase
 {
     private readonly LibrosDbContext _context;
-    public LibrosController(LibrosDbContext context)
+    private readonly IConnectionMultiplexer _redis;
+    public LibrosController(LibrosDbContext context, IConnectionMultiplexer redis)
     {
         _context = context;
+        _redis = redis;
     }
 
     // GET: api/Libro
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Libro>>> GetLibro()
     {
-        return await _context.Libros.ToListAsync();
+        var dbRedis = _redis.GetDatabase();
+
+        // Define la clave para almacenar la lista de productos 
+        var cacheKey = "libros_list";
+
+        // Obtiene la lista de productos desde la cache 
+        var librosCache = await _redis.GetDatabase().StringGetAsync(cacheKey);
+
+        // Si la lista no esta vacia se retorna desde la chace 
+        if (!librosCache.IsNullOrEmpty)
+        {
+            return JsonSerializer.Deserialize<List<Libro>>(librosCache.ToString());
+        }
+
+        // Caso contrario, se obtienen los productos desde la base de datos 
+        var libros = await _context.Libros.AsNoTracking().ToListAsync();
+
+        // Se almacena la lista obtenida en la cache por 10 minutos 
+        await dbRedis.StringSetAsync(cacheKey, JsonSerializer.Serialize(libros), TimeSpan.FromMinutes(10));
+
+        return libros;
     }
 
     // GET: api/Libro/5
     [HttpGet("{id}")]
     public async Task<ActionResult<Libro>> GetLibro(int id)
     {
+        var dbRedis = _redis.GetDatabase();
+        var cacheKey = $"libro_{id}";
+        var libroCache = await _redis.GetDatabase().StringGetAsync(cacheKey);
+
+        if (!libroCache.IsNullOrEmpty)
+        {
+            return JsonSerializer.Deserialize<Libro>(libroCache.ToString());
+        }
+
         var libro = await _context.Libros.FindAsync(id);
 
         if (libro == null)
         {
             return NotFound();
         }
+
+        await dbRedis.StringSetAsync(cacheKey, JsonSerializer.Serialize(libro), TimeSpan.FromMinutes(10));
 
         return libro;
     }
@@ -47,6 +82,16 @@ public class LibrosController : ControllerBase
 
         try
         {
+            var dbRedis = _redis.GetDatabase();
+            var cacheKeyLibro = $"libro_{id}";
+            var cacheKeyLista = "libros_list";
+
+            // Elimina el libro de la cache 
+            await dbRedis.KeyDeleteAsync(cacheKeyLibro);
+
+            // Elimina la lista de productos de la cache 
+            await dbRedis.KeyDeleteAsync(cacheKeyLista);
+
             await _context.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)
@@ -72,6 +117,10 @@ public class LibrosController : ControllerBase
         _context.Libros.Add(libro);
         await _context.SaveChangesAsync();
 
+        var dbRedis = _redis.GetDatabase();
+        var cacheKeyLista = "libros_list";
+        await dbRedis.KeyDeleteAsync(cacheKeyLista);
+
         return CreatedAtAction("GetLibro", new { id = libro.Id }, libro);
     }
 
@@ -87,6 +136,13 @@ public class LibrosController : ControllerBase
 
         _context.Libros.Remove(libro);
         await _context.SaveChangesAsync();
+
+        var dbRedis = _redis.GetDatabase();
+        var cacheKeyLibro = $"libro_{id}";
+        var cacheKeyLista = "libros_list";
+
+        await dbRedis.KeyDeleteAsync(cacheKeyLibro);
+        await dbRedis.KeyDeleteAsync(cacheKeyLista);
 
         return NoContent();
     }
