@@ -9,7 +9,7 @@ namespace LibrosAPI.Models
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            base.OnModelCreating(modelBuilder);
+           /* base.OnModelCreating(modelBuilder);
             modelBuilder.Entity<Libro>().HasData(
            new Libro
            {
@@ -129,7 +129,7 @@ new Libro { Id = 97, Titulo = "Kanlam", Autor = "Arel Abeau", AnioPublicacion = 
 new Libro { Id = 98, Titulo = "Zamit", Autor = "Jacinthe Barnshaw", AnioPublicacion = 1984 },
 new Libro { Id = 99, Titulo = "Y-Solowarm", Autor = "Ramsay Stenners", AnioPublicacion = 1994 },
 new Libro { Id = 100, Titulo = "Hatity", Autor = "Ferris Jandl", AnioPublicacion = 2003 }
-       );
+       );*/
         }
     }
 }
