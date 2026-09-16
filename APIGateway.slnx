@@ -5,4 +5,5 @@
   <Project Path="PersonaAPI.Tests/PersonaAPI.Tests.csproj" Id="4302f3b6-91b5-4068-931a-7cc2c1ad33a6" />
   <Project Path="PersonaAPI/PersonaAPI.csproj" Id="16927d3a-5d34-4965-80c8-4899180d0674" />
   <Project Path="ProductosAPI/ProductosAPI.csproj" />
+  <Project Path="VehiculosAPI/VehiculosAPI.csproj" Id="12243d4a-e507-40b4-ab9a-aa94dbda3d42" />
 </Solution>
